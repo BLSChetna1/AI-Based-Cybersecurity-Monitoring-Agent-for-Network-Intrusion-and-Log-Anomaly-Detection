@@ -31,12 +31,14 @@ const suspiciousPatterns = [
 router.post("/analyze-logs", (req, res) => {
   const { logs } = req.body;
 
+  // Validate input
   if (!Array.isArray(logs) || logs.length === 0) {
     return res.status(400).json({
       error: "Please provide a non-empty logs array"
     });
   }
 
+  // Analyze each log
   const results = logs.map((log) => {
     const message = String(log);
 
@@ -44,32 +46,64 @@ router.post("/analyze-logs", (req, res) => {
       (item) => item.pattern.test(message)
     );
 
+    // Determine severity
+    const severity = matches.length
+      ? matches.some((item) => item.severity === "HIGH")
+        ? "HIGH"
+        : "MEDIUM"
+      : "LOW";
+
+    // Generate security recommendations
+    let recommendation;
+
+    if (severity === "HIGH") {
+      recommendation =
+        "Investigate immediately and review the related security logs.";
+    } else if (severity === "MEDIUM") {
+      recommendation =
+        "Review the activity and check for repeated suspicious attempts.";
+    } else {
+      recommendation =
+        "No immediate action required. Continue monitoring.";
+    }
+
     return {
       log: message,
       suspicious: matches.length > 0,
-      severity: matches.length
-        ? matches.some((item) => item.severity === "HIGH")
-          ? "HIGH"
-          : "MEDIUM"
-        : "LOW",
-      alerts: matches.map((item) => item.name)
+      severity,
+      alerts: matches.map((item) => item.name),
+      recommendation
     };
   });
 
+  // Count suspicious and safe logs
   const suspiciousCount = results.filter(
     (item) => item.suspicious
   ).length;
 
+  const safeCount = results.length - suspiciousCount;
+
+  // Summarize severity levels
+  const severitySummary = {
+    high: results.filter(
+      (item) => item.severity === "HIGH"
+    ).length,
+
+    medium: results.filter(
+      (item) => item.severity === "MEDIUM"
+    ).length,
+
+    low: results.filter(
+      (item) => item.severity === "LOW"
+    ).length
+  };
+
+  // Send response
   res.json({
     totalLogs: results.length,
     suspiciousCount,
-    safeCount: results.length - suspiciousCount,
-      severitySummary: {
-    high: results.filter((item) => item.severity === "HIGH").length,
-    medium: results.filter((item) => item.severity === "MEDIUM").length,
-    low: results.filter((item) => item.severity === "LOW").length
-  },
-
+    safeCount,
+    severitySummary,
     results
   });
 });
