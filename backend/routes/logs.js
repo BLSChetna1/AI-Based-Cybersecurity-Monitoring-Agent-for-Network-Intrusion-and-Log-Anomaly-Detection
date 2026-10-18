@@ -64,6 +64,12 @@ router.post("/analyze-logs", (req, res) => {
     totalLogs: results.length,
     suspiciousCount,
     safeCount: results.length - suspiciousCount,
+      severitySummary: {
+    high: results.filter((item) => item.severity === "HIGH").length,
+    medium: results.filter((item) => item.severity === "MEDIUM").length,
+    low: results.filter((item) => item.severity === "LOW").length
+  },
+
     results
   });
 });
