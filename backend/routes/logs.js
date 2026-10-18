@@ -3,7 +3,31 @@ const express = require("express");
 
 const router = express.Router();
 
-// Analyze sample security logs
+// Security log patterns and severity levels
+const suspiciousPatterns = [
+  {
+    name: "Possible SQL injection",
+    pattern: /union\s+select|sql injection|or\s+1\s*=\s*1/i,
+    severity: "HIGH"
+  },
+  {
+    name: "Possible port scanning",
+    pattern: /port scan|port scanning/i,
+    severity: "MEDIUM"
+  },
+  {
+    name: "Failed login attempt",
+    pattern: /failed password|login failed|authentication failure/i,
+    severity: "MEDIUM"
+  },
+  {
+    name: "Possible unauthorized access",
+    pattern: /unauthorized access|access denied/i,
+    severity: "HIGH"
+  }
+];
+
+// Analyze security logs
 router.post("/analyze-logs", (req, res) => {
   const { logs } = req.body;
 
@@ -13,36 +37,22 @@ router.post("/analyze-logs", (req, res) => {
     });
   }
 
-  const suspiciousPatterns = [
-    {
-      name: "Failed login attempt",
-      pattern: /failed password|login failed|authentication failure/i
-    },
-    {
-      name: "Possible SQL injection",
-      pattern: /union\s+select|sql injection|or\s+1\s*=\s*1/i
-    },
-    {
-      name: "Possible port scanning",
-      pattern: /port scan|port scanning/i
-    },
-    {
-      name: "Possible unauthorized access",
-      pattern: /unauthorized access|access denied/i
-    }
-  ];
-
   const results = logs.map((log) => {
     const message = String(log);
 
-    const matches = suspiciousPatterns
-      .filter((item) => item.pattern.test(message))
-      .map((item) => item.name);
+    const matches = suspiciousPatterns.filter(
+      (item) => item.pattern.test(message)
+    );
 
     return {
       log: message,
       suspicious: matches.length > 0,
-      alerts: matches
+      severity: matches.length
+        ? matches.some((item) => item.severity === "HIGH")
+          ? "HIGH"
+          : "MEDIUM"
+        : "LOW",
+      alerts: matches.map((item) => item.name)
     };
   });
 
